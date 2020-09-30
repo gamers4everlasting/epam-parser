@@ -1,0 +1,26 @@
+{
+  "name": "bot-epam",
+  "version": "1.0.0",
+  "description": "",
+  "main": "index.js",
+  "scripts": {
+    "start": "node index.js",
+    "dev": "node $NODE_DEBUG_OPTION index.js",
+    "prod:seed": "NODE_ENV=production knex seed:run",
+    "prod:start": "pm2 start pm2.prod.config.js",
+    "prod:stop": "pm2 stop pm2.prod.config.js",
+    "prod:deploy": "npm run prod:stop && git pull && npm run prod:migration && npm run prod:start",
+    "status": "pm2 status"
+  },
+  "author": "",
+  "license": "ISC",
+  "dependencies": {
+    "cheerio": "^1.0.0-rc.3",
+    "config": "^3.3.1",
+    "node-fetch": "^2.6.1",
+    "pm2": "^4.4.0",
+    "set-cookie-parser": "^2.4.6",
+    "telegraf": "^3.38.0",
+    "url-parse": "^1.4.7"
+  }
+}
