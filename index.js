@@ -199,78 +199,10 @@ const getData = async (replyWithDocument, query, id) => {
             "mode": "cors"
         }).then(t => t.text());
 
-        replyWithDocument({
+        return replyWithDocument({
             source: Buffer.from(result),
-            filename: `${id}.json`
+            filename: `${query.skill}.json`
         })
-
-        // const data = await Fetch(group.url)
-        //     .then(d => d.text())
-        //
-        // const body = Cheerio.load(data)
-        //
-        // const a = body('.list-label a')
-        //
-        // const result = []
-        //
-        // for (const raw of Object.keys(a)) {
-        //     try {
-        //         const element = a[raw]
-        //
-        //         if (!element.attribs || !element.attribs.href) {
-        //             continue
-        //         }
-        //
-        //         const link = element.attribs.href
-        //         const id = link.split('-').pop()
-        //
-        //         if (!id) {
-        //             continue
-        //         }
-        //
-        //         const post = await PostedModel.get({
-        //             group: group.id,
-        //             post_id: id
-        //         })
-        //
-        //         if (post) {
-        //             continue
-        //         }
-        //
-        //         const row = Cheerio.load(element)
-        //
-        //         const title = row('.name').text().split('\n').map(n => n.trim()).filter(n => n).join(' ')
-        //         const price = row('.price').text().split('\n').map(n => n.trim()).filter(n => n).join(' - ')
-        //         const description = row('.item-info-wrapper').text().split('\n').map(n => n.trim()).filter(n => n).join(' - ')
-        //
-        //         await PostedModel.create({
-        //             group: group.id,
-        //             post_id: id
-        //         })
-        //
-        //         result.push({
-        //             title,
-        //             link: `https://mashina.kg${link}`,
-        //             price,
-        //             description,
-        //         })
-        //     } catch (e) {
-        //         console.error(e)
-        //     }
-        // }
-        //
-        // if (result.length === 0) {
-        //     return
-        // }
-        //
-        // const text = result
-        //     .map(i => `<b>${i.title} - ${i.price}</b>\n${i.description} <a href="${i.link}">[посмореть]</a>`)
-        //     .join('\n\n')
-        //
-        // await sendMessage(group.group, text, {
-        //     parse_mode: 'html',
-        //     disable_web_page_preview: result.length > 1,
-        // })
 
     } catch (e) {
         console.error(e)
