@@ -108,7 +108,7 @@ const loginProcess = async (loginUrl) => {
             "sec-fetch-site": "same-origin",
             "sec-fetch-user": "?1",
             "upgrade-insecure-requests": "1",
-            "cookie": loginUrl.cookie
+            "cookie": ['BACK_IDX=1', loginUrl.cookie].join('; ')
         },
         "rejectUnauthorized": false,
         "referrerPolicy": "no-referrer",
