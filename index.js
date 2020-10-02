@@ -24,6 +24,24 @@ const cookieParse = (result, skip) => {
 
 const getLoginUrl = async() => {
 
+    const land = await Fetch("https://grow.telescopeai.com/landing/you/", {
+        "headers": {
+            "accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8,application/signed-exchange;v=b3;q=0.9",
+            "accept-language": "ru-RU,ru;q=0.9,en-XA;q=0.8,en;q=0.7,en-US;q=0.6",
+            "sec-fetch-dest": "document",
+            "sec-fetch-mode": "navigate",
+            "sec-fetch-site": "same-origin",
+            "sec-fetch-user": "?1",
+            "upgrade-insecure-requests": "1",
+        },
+        "referrer": "https://grow.telescopeai.com",
+        "referrerPolicy": "origin-when-cross-origin",
+        "body": null,
+        "method": "GET",
+        "mode": "cors",
+        redirect: 'manual'
+    });
+
     const pdp = await Fetch("https://grow.telescopeai.com/pdp/", {
         "headers": {
             "accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8,application/signed-exchange;v=b3;q=0.9",
@@ -42,9 +60,10 @@ const getLoginUrl = async() => {
         redirect: 'manual'
     });
 
+    const cookiesLand = cookieParse(land, 'Auth.Count')
     const cookiesPDP = cookieParse(pdp, 'Auth.Count')
 
-    console.log(cookiesPDP)
+    console.log(cookiesLand, cookiesPDP)
 
     const result = await Fetch("https://access.epam.com/auth/realms/plusx/protocol/openid-connect/auth?response_type=code&client_id=EPM-GROW-WITH&redirect_uri=https%3A%2F%2Fgrow.telescopeai.com%2Fauth%2Fsignin-keycloak&state=QS0rPmlDqyGbOvBdJ6g-BJie32YXaeWYnmgfUj28l5M7-w_GvzstaM5Wogroz4Xn15ow8-Ej-oYbcOyO_rvsa5C1VPUTppV5R6VsLF-bbQ8yxqVn2E_0EqJ6qsmgudIia-AE2UO-B20Kcb-sYHFi6zkn_RSZuTd03ct8bp2BHG_uDJfjMnBzoNGdhGjDZ6_Gs6Gj91IGL4kKx1eMaHsiFtw6UzvpZAUOQbetEMj2s2hOLprvJ618ue3kRBB7EjwX&scope=openid%20profile%20email%20offline_access", {
         "headers": {
@@ -72,6 +91,7 @@ const getLoginUrl = async() => {
     return {
         url: form.hasOwnProperty('0') ? form['0'].attribs.action : false,
         cookie: cookie,
+        cookiesLand,
         cookiesPDP
     }
 }
@@ -126,7 +146,7 @@ const loginProcess = async (loginUrl) => {
             "sec-fetch-site": "cross-site",
             "sec-fetch-user": "?1",
             "upgrade-insecure-requests": "1",
-            "cookie": loginUrl.cookiesPDP
+            "cookie": [loginUrl.cookiesLand, loginUrl.cookiesPDP].join('; ')
         },
         "referrerPolicy": "no-referrer",
         "body": null,
@@ -142,7 +162,8 @@ const getData = async (query) => {
     try {
         const loginUrl = await getLoginUrl()
         const process = await loginProcess(loginUrl)
-
+        //7d6177fc11be4d05a74b27f71804cac4
+        //7d6177fc11be4d05a74b27f71804cac4
         console.log(process)
 
         // const data = await Fetch(group.url)
