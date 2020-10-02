@@ -4,11 +4,13 @@ const Cheerio = require('cheerio')
 const Telegraf = require('telegraf')
 const Fetch = require('node-fetch')
 const Url = require('url-parse');
+const FS = require('fs');
+const Path = require('path');
 const setCookie = require('set-cookie-parser');
 
 const bot = new Telegraf('1360194566:AAFKJFtYWBioafyWUIqzeRa9Ds3NptnIF74')
 
-const sendMessage = bot.telegram.sendMessage.bind(bot.telegram)
+const path = `${Path.join(process.cwd(), 'tmp')}`
 
 const cookieParse = (result, skip) => {
     const cookies = result.headers.get('set-cookie')
@@ -60,12 +62,13 @@ const getLoginUrl = async() => {
         redirect: 'manual'
     });
 
+    const csrf = cookieParse(land, 'Auth.Count').replace('CSRF-TOKEN=', '')
     const cookiesLand = cookieParse(land, 'Auth.Count')
     const cookiesPDP = cookieParse(pdp, 'Auth.Count')
 
     console.log(cookiesLand, cookiesPDP)
 
-    const result = await Fetch("https://access.epam.com/auth/realms/plusx/protocol/openid-connect/auth?response_type=code&client_id=EPM-GROW-WITH&redirect_uri=https%3A%2F%2Fgrow.telescopeai.com%2Fauth%2Fsignin-keycloak&state=QS0rPmlDqyGbOvBdJ6g-BJie32YXaeWYnmgfUj28l5M7-w_GvzstaM5Wogroz4Xn15ow8-Ej-oYbcOyO_rvsa5C1VPUTppV5R6VsLF-bbQ8yxqVn2E_0EqJ6qsmgudIia-AE2UO-B20Kcb-sYHFi6zkn_RSZuTd03ct8bp2BHG_uDJfjMnBzoNGdhGjDZ6_Gs6Gj91IGL4kKx1eMaHsiFtw6UzvpZAUOQbetEMj2s2hOLprvJ618ue3kRBB7EjwX&scope=openid%20profile%20email%20offline_access", {
+    const result = await Fetch(pdp.headers.get('location'), {
         "headers": {
             "accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8,application/signed-exchange;v=b3;q=0.9",
             "accept-language": "ru-RU,ru;q=0.9,en-XA;q=0.8,en;q=0.7,en-US;q=0.6",
@@ -89,6 +92,7 @@ const getLoginUrl = async() => {
     const cookie = cookieParse(result)
 
     return {
+        csrf,
         url: form.hasOwnProperty('0') ? form['0'].attribs.action : false,
         cookie: cookie,
         cookiesLand,
@@ -117,24 +121,6 @@ const loginProcess = async (loginUrl) => {
         "mode": "cors",
         redirect: 'manual'
     });
-    //
-    // fetch("https://grow.telescopeai.com/auth/signin-keycloak?state=EWtOgVTbvV-zxJTYmoB1gpYzNG250t-XcTGMOcoLGHXArW9tGp4oXxlBwfVBuIbvV1LMDNLlLXTYgCbroc5hXk981jrOKTmwGzEyPVSGKUJBK8wMv8e0TUs1VAPkpRDDXn-MkyuUX_DZOmv_8xi4Ox1otNXSdOYoYLNJinV9QOz78edZus3soYeDLIg72INq6eZT5-CDK3Sx0JTeb25vfXaL7hZwGoZgotwMQcM2wr5P86AaVj66NA1bmzkt-MOmMo1CyJOlJvzrHSQXY4jbLARcjOMbAsPBlpo9slpjiekabtTDtCuxn_rJcsRmdkW4kq4tH4pvcSd7h3CwsB6sNw&session_state=9f61288d-6cae-41a2-854c-1afb59ef9b2a&code=422ec917-7f62-4620-876b-07b28f713c80.9f61288d-6cae-41a2-854c-1afb59ef9b2a.b9a36e73-bf1b-455b-94f2-9ab951d1d469", {
-    //     "headers": {
-    //         "accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8,application/signed-exchange;v=b3;q=0.9",
-    //         "accept-language": "ru-RU,ru;q=0.9,en-XA;q=0.8,en;q=0.7,en-US;q=0.6",
-    //         "cache-control": "max-age=0",
-    //         "sec-fetch-dest": "document",
-    //         "sec-fetch-mode": "navigate",
-    //         "sec-fetch-site": "cross-site",
-    //         "sec-fetch-user": "?1",
-    //         "upgrade-insecure-requests": "1",
-    //         "cookie": "_ga=GA1.2.1951908759.1601282084; CSRF-TOKEN=d7c0728ca859476cb1e0544799b4ae93; _gid=GA1.2.180262178.1601387569; .AspNet.Correlation.Keycloak=OIJMEaHy57EXjyWeAq0DEtFzFrkiWQS-nQUjfM7HwH4"
-    //     },
-    //     "referrerPolicy": "no-referrer",
-    //     "body": null,
-    //     "method": "GET",
-    //     "mode": "cors"
-    // });
 
     const cloak = await Fetch(result.headers.get('location'), {
         "headers": {
@@ -155,16 +141,68 @@ const loginProcess = async (loginUrl) => {
         redirect: 'manual'
     });
 
-    console.log(cloak)
+    return [loginUrl.cookiesLand, cookieParse(cloak, '.AspNet.Correlation.Keycloak')].join('; ')
 }
 
-const getData = async (query) => {
+const getCategoryByID = async (query, loginUrl, processCookies, id) => {
+    const json = await Fetch("https://grow.telescopeai.com/api/PdpController/Load", {
+        "headers": {
+            "user-agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_6) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/85.0.4183.121 Safari/537.36",
+            "accept": "*/*",
+            "accept-language": "en-US,en;q=0.9",
+            "content-type": "application/json",
+            "sec-fetch-dest": "empty",
+            "sec-fetch-mode": "cors",
+            "sec-fetch-site": "same-origin",
+            "x-csrf-token": loginUrl.csrf,
+            "x-requested-with": "XMLHttpRequest",
+            "origin": "https://grow.telescopeai.com",
+            "cookie": processCookies,
+        },
+        "referrer": `https://grow.telescopeai.com/skillMatrices/${id}`,
+        "referrerPolicy": "origin-when-cross-origin",
+        "body": `\"${id}\"`,
+        "method": "POST",
+        "mode": "cors"
+    }).then(t => t.json());
+
+    const c = json.headerVM.positions.competencies.find(({code}) => code === query.competency)
+
+    return c.id
+}
+
+const getData = async (replyWithDocument, query, id) => {
     try {
         const loginUrl = await getLoginUrl()
-        const process = await loginProcess(loginUrl)
-        //7d6177fc11be4d05a74b27f71804cac4
-        //7d6177fc11be4d05a74b27f71804cac4
-        console.log(process)
+        const processCookies = await loginProcess(loginUrl)
+
+        const load = await getCategoryByID(query, loginUrl, processCookies, id)
+
+        const result = await Fetch("https://grow.telescopeai.com/api/SkillContentReader/Query", {
+            "headers": {
+                "user-agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_6) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/85.0.4183.121 Safari/537.36",
+                "accept": "*/*",
+                "accept-language": "en-US,en;q=0.9",
+                "content-type": "application/json",
+                "sec-fetch-dest": "empty",
+                "sec-fetch-mode": "cors",
+                "sec-fetch-site": "same-origin",
+                "x-csrf-token": loginUrl.csrf,
+                "x-requested-with": "XMLHttpRequest",
+                "origin": "https://grow.telescopeai.com",
+                "cookie": processCookies,
+            },
+            "referrer": `https://grow.telescopeai.com/skillMatrices/37446?competency=${query.competency}&level=${query.level}&skill=${query.skill}`,
+            "referrerPolicy": "origin-when-cross-origin",
+            "body": `{\"skillId\":${query.skill},\"competencyId\":${load},\"userId\":37446,\"isPreview\":false,\"jobFunctionLevel\":${query.level}`,
+            "method": "POST",
+            "mode": "cors"
+        }).then(t => t.text());
+
+        replyWithDocument({
+            source: Buffer.from(result),
+            filename: `${id}.json`
+        })
 
         // const data = await Fetch(group.url)
         //     .then(d => d.text())
@@ -239,16 +277,25 @@ const getData = async (query) => {
     }
 }
 
-bot.command('load', async ({reply, update}) => {
+bot.on('message', async ({ reply, replyWithDocument, update}) => {
     try {
-        const text = update.message.text.replace('/load', '').trim()
-        const parseUrl = new Url(text, true);
+        try {
+            const text = update.message.text.trim()
+            const parseUrl = new Url(text, true);
 
-        if (!parseUrl.host === 'grow.telescopeai.com' || !parseUrl.query || !parseUrl.query.competency || !parseUrl.query.level || !parseUrl.query.skill) {
-            return reply(`Ссылка не валидна`)
+            const id = parseUrl.pathname.split('/').pop()
+
+
+            if (parseUrl.host !== 'grow.telescopeai.com' || !parseUrl.query || !parseUrl.query.competency || !parseUrl.query.level || !parseUrl.query.skill) {
+                return reply(`Ссылка не валидна`)
+            }
+
+            await reply(`Ща падажи`)
+
+            await getData(replyWithDocument, parseUrl.query, id)
+        } catch (e) {
+            await reply(`Не получилось забрать страницу`)
         }
-
-        await getData(parseUrl.query)
     } catch (e) {
         console.error(e)
     }
