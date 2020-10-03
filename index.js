@@ -4,13 +4,11 @@ const Cheerio = require('cheerio')
 const Telegraf = require('telegraf')
 const Fetch = require('node-fetch')
 const Url = require('url-parse');
-const FS = require('fs');
-const Path = require('path');
 const setCookie = require('set-cookie-parser');
 
 const bot = new Telegraf('1360194566:AAFKJFtYWBioafyWUIqzeRa9Ds3NptnIF74')
 
-const path = `${Path.join(process.cwd(), 'tmp')}`
+const mikeId = 37446
 
 const cookieParse = (result, skip) => {
     const cookies = result.headers.get('set-cookie')
@@ -174,12 +172,12 @@ const getCategoryByID = async (query, loginUrl, processCookies, id) => {
     }
 }
 
-const getData = async (replyWithDocument, query, id) => {
+const getData = async (replyWithDocument, query) => {
     try {
         const loginUrl = await getLoginUrl()
         const processCookies = await loginProcess(loginUrl)
 
-        const load = await getCategoryByID(query, loginUrl, processCookies, id)
+        const load = await getCategoryByID(query, loginUrl, processCookies, mikeId)
 
         const result = await Fetch("https://grow.telescopeai.com/api/SkillContentReader/Query", {
             "headers": {
@@ -195,9 +193,9 @@ const getData = async (replyWithDocument, query, id) => {
                 "origin": "https://grow.telescopeai.com",
                 "cookie": processCookies,
             },
-            "referrer": `https://grow.telescopeai.com/skillMatrices/37446?competency=${query.competency}&level=${query.level}&skill=${query.skill}`,
+            "referrer": `https://grow.telescopeai.com/skillMatrices/${mikeId}?competency=${query.competency}&level=${query.level}&skill=${query.skill}`,
             "referrerPolicy": "origin-when-cross-origin",
-            "body": `{\"skillId\":${query.skill},\"competencyId\":${load},\"userId\":37446,\"isPreview\":false,\"jobFunctionLevel\":${query.level}`,
+            "body": `{\"skillId\":${query.skill},\"competencyId\":${load},\"userId\":${mikeId},\"isPreview\":false,\"jobFunctionLevel\":${query.level}`,
             "method": "POST",
             "mode": "cors"
         }).then(t => t.text());
@@ -218,18 +216,13 @@ bot.on('message', async ({ reply, replyWithDocument, update}) => {
             const text = update.message.text.trim()
             const parseUrl = new Url(text, true);
 
-            const mainId = 37446
-
-            const id = parseUrl.pathname.split('/').pop()
-            parseUrl.pathname = parseUrl.pathname.replace(id, mainId)
-
             if (parseUrl.host !== 'grow.telescopeai.com' || !parseUrl.query || !parseUrl.query.competency || !parseUrl.query.level || !parseUrl.query.skill) {
                 return reply(`Ссылка не валидна`)
             }
 
             await reply(`Ща падажи`)
 
-            await getData(replyWithDocument, parseUrl.query, id)
+            await getData(replyWithDocument, parseUrl.query)
         } catch (e) {
             await reply(`Не получилось забрать страницу`)
         }
