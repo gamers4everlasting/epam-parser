@@ -116,7 +116,7 @@ const loginProcess = async (loginUrl) => {
         },
         "rejectUnauthorized": false,
         "referrerPolicy": "no-referrer",
-        "body": "username=gamer4everlasting%40gmail.com&password=Gamer4gmail&login=Sign+In",
+        "body": "username=mihail.hegai%40gmail.com&password=E5ecurepam&login=Sign+In",
         "method": "POST",
         "mode": "cors",
         redirect: 'manual'
@@ -168,7 +168,10 @@ const getCategoryByID = async (query, loginUrl, processCookies, id) => {
 
     const c = json.headerVM.positions.competencies.find(({code}) => code === query.competency)
 
-    return c.id
+    return {
+        userId: json.userProfileId,
+        id: c.id
+    }
 }
 
 const getData = async (replyWithDocument, query, id) => {
@@ -215,8 +218,10 @@ bot.on('message', async ({ reply, replyWithDocument, update}) => {
             const text = update.message.text.trim()
             const parseUrl = new Url(text, true);
 
-            const id = parseUrl.pathname.split('/').pop()
+            const mainId = 37446
 
+            const id = parseUrl.pathname.split('/').pop()
+            parseUrl.pathname = parseUrl.pathname.replace(id, mainId)
 
             if (parseUrl.host !== 'grow.telescopeai.com' || !parseUrl.query || !parseUrl.query.competency || !parseUrl.query.level || !parseUrl.query.skill) {
                 return reply(`Ссылка не валидна`)
