@@ -116,7 +116,7 @@ const loginProcess = async (loginUrl) => {
         },
         "rejectUnauthorized": false,
         "referrerPolicy": "no-referrer",
-        "body": "username=mihail.hegai%40gmail.com&password=E5ecurepam&login=Sign+In",
+        "body": "username=gamer4everlasting%40gmail.com&password=Gamer4gmail&login=Sign+In",
         "method": "POST",
         "mode": "cors",
         redirect: 'manual'
