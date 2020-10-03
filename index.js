@@ -166,10 +166,7 @@ const getCategoryByID = async (query, loginUrl, processCookies, id) => {
 
     const c = json.headerVM.positions.competencies.find(({code}) => code === query.competency)
 
-    return {
-        userId: json.userProfileId,
-        id: c.id
-    }
+    return c.id
 }
 
 const getData = async (replyWithDocument, query) => {
