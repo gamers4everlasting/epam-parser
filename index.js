@@ -143,7 +143,7 @@ const loginProcess = async (loginUrl) => {
     return [loginUrl.cookiesLand, cookieParse(cloak, '.AspNet.Correlation.Keycloak')].join('; ')
 }
 
-const createDir = (dir) =>
+const createDir = async (dir) =>
 {
     if(!fs.existsSync(dir))
     {
@@ -155,49 +155,9 @@ const createDir = (dir) =>
 
 const processSkills =  async (processCookies, loginUrl, competency, competencyId, level, skillId, dir) =>{
     
-    console.log("ProcessSkills: skillId="+ skillId);
-    const result = await Fetch("https://grow.telescopeai.com/api/SkillContentReader/Query", {
-            "headers": {
-                "user-agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_6) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/85.0.4183.121 Safari/537.36",
-                "accept": "*/*",
-                "accept-language": "en-US,en;q=0.9",
-                "content-type": "application/json",
-                "sec-fetch-dest": "empty",
-                "sec-fetch-mode": "cors",
-                "sec-fetch-site": "same-origin",
-                "x-csrf-token": loginUrl.csrf,
-                "x-requested-with": "XMLHttpRequest",
-                "origin": "https://grow.telescopeai.com",
-                "cookie": processCookies,
-            },
-            "referrer": `https://grow.telescopeai.com/skillMatrices/${mikeId}?competency=${competency}&level=${level}&skill=${skillId}`,
-            "referrerPolicy": "origin-when-cross-origin",
-            "body": `{\"skillId\":${skillId},\"competencyId\":${competencyId},\"userId\":${mikeId},\"isPreview\":false,\"jobFunctionLevel\":${level}`,
-            "method": "POST",
-            "mode": "cors"
-        }).then(t => t.text());
-
-        console.log("Process skills result: " + result);
-        var dirName = dir + " /" +`${skillId}.json`;
-
-        if (fs.existsSync(dirName) == false) {
-            console.log("Saving file to dir: " + dirName)
-            fs.writeFileSync(dirName, result);
-        }
-}
-
-const processSkillsByLevels = async (processCookies, loginUrl, competency, competencyId, nextDir, skillType, level) =>
-{
-    console.log("DEBUG START:::");
-    console.log(competency);
-    console.log(competencyId);
-    console.log(nextDir);
-    console.log(skillType);
-    console.log(level);
-    console.log("DEBUG END:::");
-    
-
-    const result = await Fetch("https://grow.telescopeai.com/api/SkillContentReader/Query", {
+    try{
+        console.log("ProcessSkills: skillId="+ skillId);
+        const result = await Fetch("https://grow.telescopeai.com/api/SkillContentReader/Query", {
                 "headers": {
                     "user-agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_6) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/85.0.4183.121 Safari/537.36",
                     "accept": "*/*",
@@ -211,45 +171,84 @@ const processSkillsByLevels = async (processCookies, loginUrl, competency, compe
                     "origin": "https://grow.telescopeai.com",
                     "cookie": processCookies,
                 },
-                "referrer": `https://grow.telescopeai.com/skillMatrices/${mikeId}?competency=${competency}&level=${level}`,
+                "referrer": `https://grow.telescopeai.com/skillMatrices/${mikeId}?competency=${competency}&level=${level}&skill=${skillId}`,
                 "referrerPolicy": "origin-when-cross-origin",
-                "body": `{\"userProfileId\":${mikeId},\"jobFunctionBaseId\":null,\"jobFunctionLevel\":${level},\"competencyId\":${competencyId}`,
+                "body": `{\"skillId\":${skillId},\"competencyId\":${competencyId},\"userId\":${mikeId},\"isPreview\":false,\"jobFunctionLevel\":${level}`,
                 "method": "POST",
                 "mode": "cors"
             }).then(t => t.json());
 
-            console.log("RESULT DBG: " + result);
+            console.log("Process skills result: " + result);
+            var dirName = dir + " /" +`${skillId}.json`;
 
-            if(skillType === "Soft skills")
-            {            
-                console.log("soft skills &&" + result);    
-                let softSkill = result.skills.find(({skillName}) => skillName == skillType);
-                for(const skill in result.skills)
-                {
-                    if(skill.parentId == softSkill.skillId)
-                        processSkills(processCookies, loginUrl, competency, competencyId, level, skill.skillId, nextDir);
-                }
-
+            if (fs.existsSync(dirName) == false) {
+                console.log("Saving file to dir: " + dirName)
+                fs.writeFileSync(dirName, result);
             }
-            else if (skillType === "Hard skills")
+    } catch (e) {
+        console.error(e)
+    }
+}
+
+const processSkillsByLevels = async (processCookies, loginUrl, competency, competencyId, nextDir, skillType, level) =>
+{   
+
+    try{
+        const result = await Fetch("https://grow.telescopeai.com/api/SkillsMatrixReader/Query", {
+            "headers": {
+                "user-agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_6) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/85.0.4183.121 Safari/537.36",
+                "accept": "*/*",
+                "accept-language": "en-US,en;q=0.9",
+                "content-type": "application/json",
+                "sec-fetch-dest": "empty",
+                "sec-fetch-mode": "cors",
+                "sec-fetch-site": "same-origin",
+                "x-csrf-token": loginUrl.csrf,
+                "x-requested-with": "XMLHttpRequest",
+                "origin": "https://grow.telescopeai.com",
+                "cookie": processCookies,
+            },
+            "referrer": `https://grow.telescopeai.com/skillMatrices/${mikeId}?competency=${competency}&level=${level}`,
+            "referrerPolicy": "origin-when-cross-origin",
+            "body": `{\"userProfileId\":${mikeId},\"jobFunctionBaseId\":null,\"jobFunctionLevel\":${level},\"competencyId\":${competencyId}`,
+            "method": "POST",
+            "mode": "cors"
+        }).then(t => t.json());
+
+        if(skillType === "Soft skills")
+        {              
+            const softSkillId = result.skills.find(({name}) => name === skillType).id;
+            for(const skill in result.skills)
             {
-                console.log("Hard skills &&&" + result);
-                let hardSkill = result.skills.find(({skillName}) => skillName == skillType);
-                for (const skill in result.hardSkill)
+                if(skill.rootId == softSkillId)
                 {
-                    if(skill.parentId == hardSkill.skillId)
-                        processSkills(processCookies, loginUrl, competency, competencyId, level, skill.skillId, nextDir)
+                    console.log("In Soft skills root!")
+                    await processSkills(processCookies, loginUrl, competency, competencyId, level, skill.id, nextDir);
                 }
             }
-            else{
-                console.log("not hard and not soft skill");
+
+        }
+        else if (skillType === "Hard skills")
+        {
+            let hardSkillId = result.skills.find(({name}) => name === skillType).id;
+            for (const skill in result.skills)
+            {
+                if(skill.rootId == hardSkillId)
+                    await processSkills(processCookies, loginUrl, competency, competencyId, level, skill.id, nextDir)
             }
+        }
+        else{
+            console.log("not hard and not soft skill");
+        }
+    }catch(e){
+        console.error("Maint error" + e);
+    }
+    
 }
 
 const getAllSkillsByLevels = async (processCookies, loginUrl, competency, competencyId, dir, skillType) =>{
-    for (let level = 1; i < 6; i++)
-    {
-        console.log("Level :" + level)
+  
+    levels.forEach(level => {
         let nextDir = dir + "/" + "L" + level; //not sure if works recusively
         createDir(nextDir);
         try{            
@@ -257,11 +256,12 @@ const getAllSkillsByLevels = async (processCookies, loginUrl, competency, compet
         } catch (e) {
             console.error(e)
         }
-    }
+    });  
     
 }
 
 const getCategoryByID = async (loginUrl, processCookies, id, rootDirName) => {
+    console.log("in get category")
     const json = await Fetch("https://grow.telescopeai.com/api/PdpController/Load", {
         "headers": {
             "user-agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_6) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/85.0.4183.121 Safari/537.36",
@@ -284,13 +284,13 @@ const getCategoryByID = async (loginUrl, processCookies, id, rootDirName) => {
     }).then(t => t.json());
 
     
-    const competents = json.headerVM.positions.competencies;
-    
-    for (const element in competents)
+    let competents = json.headerVM.positions.competencies;
+    competents.forEach(element => {
         if(element.parentId != null)
         {
             //create a folder with the name of element, pass Id and folder name
-            let nextDir =  rootDirName + "/" + element.name;
+            let nextDir =  rootDirName + "/" + element.name.replace(/([.*+?^=!:${}()|\[\]\/\\])/g, '_');
+            console.log(nextDir)
             createDir(nextDir);
             //generate hard and soft skills folders
             let softDirName = nextDir + "/SoftSkills"; 
@@ -300,7 +300,9 @@ const getCategoryByID = async (loginUrl, processCookies, id, rootDirName) => {
             let hardDirName = nextDir + "/HardSkills";   
             createDir(hardDirName);    
             getAllSkillsByLevels(processCookies, loginUrl, element.code, element.id, hardDirName, "Hard skills");
-        }    
+        }
+    });
+            
 }
 
 
@@ -309,7 +311,9 @@ const getData = async (rootDirName) => {
         const loginUrl = await getLoginUrl()
         const processCookies = await loginProcess(loginUrl)
         console.log("Get Data");
-        var d = await getCategoryByID(loginUrl, processCookies, mikeId, rootDirName);     
+        
+        //await processSkills(processCookies, loginUrl, competency, competencyId, level, skill.id, nextDir)
+        await getCategoryByID(loginUrl, processCookies, mikeId, rootDirName);     
 
               
     } catch (e) {
@@ -320,7 +324,7 @@ const getData = async (rootDirName) => {
 const http = require('http');
 
 // Create server 
-let app = http.createServer(function (req, res) { 
+let app = http.createServer(async function (req, res) { 
   
     res.writeHead(200, {'Content-Type': 'text/html'}); 
       
@@ -329,7 +333,7 @@ let app = http.createServer(function (req, res) {
             let rootDirName = "./Matrix";
             createDir(rootDirName); 
           
-            getData(rootDirName);            
+            await getData(rootDirName);            
             console.log( `Закончил епта!`);
         } catch (e) {
             console.log(e, `Не получилось забрать страницу`)
