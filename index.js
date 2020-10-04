@@ -5,11 +5,12 @@ const Telegraf = require('telegraf')
 const Fetch = require('node-fetch')
 const Url = require('url-parse');
 const setCookie = require('set-cookie-parser');
+var fs = require('fs');
 
 const bot = new Telegraf('1360194566:AAFKJFtYWBioafyWUIqzeRa9Ds3NptnIF74')
 
 const mikeId = 37446
-
+const levels = [1, 2, 3, 4, 5]
 const cookieParse = (result, skip) => {
     const cookies = result.headers.get('set-cookie')
 
@@ -142,7 +143,125 @@ const loginProcess = async (loginUrl) => {
     return [loginUrl.cookiesLand, cookieParse(cloak, '.AspNet.Correlation.Keycloak')].join('; ')
 }
 
-const getCategoryByID = async (query, loginUrl, processCookies, id) => {
+const createDir = (dir) =>
+{
+    if(!fs.existsSync(dir))
+    {
+        fs.mkdirSync(dir)                
+    }else{
+        console.log("Directory Exists : " + dir);
+    }
+}
+
+const processSkills =  async (processCookies, loginUrl, competency, competencyId, level, skillId, dir) =>{
+    
+    console.log("ProcessSkills: skillId="+ skillId);
+    const result = await Fetch("https://grow.telescopeai.com/api/SkillContentReader/Query", {
+            "headers": {
+                "user-agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_6) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/85.0.4183.121 Safari/537.36",
+                "accept": "*/*",
+                "accept-language": "en-US,en;q=0.9",
+                "content-type": "application/json",
+                "sec-fetch-dest": "empty",
+                "sec-fetch-mode": "cors",
+                "sec-fetch-site": "same-origin",
+                "x-csrf-token": loginUrl.csrf,
+                "x-requested-with": "XMLHttpRequest",
+                "origin": "https://grow.telescopeai.com",
+                "cookie": processCookies,
+            },
+            "referrer": `https://grow.telescopeai.com/skillMatrices/${mikeId}?competency=${competency}&level=${level}&skill=${skillId}`,
+            "referrerPolicy": "origin-when-cross-origin",
+            "body": `{\"skillId\":${skillId},\"competencyId\":${competencyId},\"userId\":${mikeId},\"isPreview\":false,\"jobFunctionLevel\":${level}`,
+            "method": "POST",
+            "mode": "cors"
+        }).then(t => t.text());
+
+        console.log("Process skills result: " + result);
+        var dirName = dir + " /" +`${skillId}.json`;
+
+        if (fs.existsSync(dirName) == false) {
+            console.log("Saving file to dir: " + dirName)
+            fs.writeFileSync(dirName, result);
+        }
+}
+
+const processSkillsByLevels = async (processCookies, loginUrl, competency, competencyId, nextDir, skillType, level) =>
+{
+    console.log("DEBUG START:::");
+    console.log(competency);
+    console.log(competencyId);
+    console.log(nextDir);
+    console.log(skillType);
+    console.log(level);
+    console.log("DEBUG END:::");
+    
+
+    const result = await Fetch("https://grow.telescopeai.com/api/SkillContentReader/Query", {
+                "headers": {
+                    "user-agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_6) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/85.0.4183.121 Safari/537.36",
+                    "accept": "*/*",
+                    "accept-language": "en-US,en;q=0.9",
+                    "content-type": "application/json",
+                    "sec-fetch-dest": "empty",
+                    "sec-fetch-mode": "cors",
+                    "sec-fetch-site": "same-origin",
+                    "x-csrf-token": loginUrl.csrf,
+                    "x-requested-with": "XMLHttpRequest",
+                    "origin": "https://grow.telescopeai.com",
+                    "cookie": processCookies,
+                },
+                "referrer": `https://grow.telescopeai.com/skillMatrices/${mikeId}?competency=${competency}&level=${level}`,
+                "referrerPolicy": "origin-when-cross-origin",
+                "body": `{\"userProfileId\":${mikeId},\"jobFunctionBaseId\":null,\"jobFunctionLevel\":${level},\"competencyId\":${competencyId}`,
+                "method": "POST",
+                "mode": "cors"
+            }).then(t => t.json());
+
+            console.log("RESULT DBG: " + result);
+
+            if(skillType === "Soft skills")
+            {            
+                console.log("soft skills &&" + result);    
+                let softSkill = result.skills.find(({skillName}) => skillName == skillType);
+                for(const skill in result.skills)
+                {
+                    if(skill.parentId == softSkill.skillId)
+                        processSkills(processCookies, loginUrl, competency, competencyId, level, skill.skillId, nextDir);
+                }
+
+            }
+            else if (skillType === "Hard skills")
+            {
+                console.log("Hard skills &&&" + result);
+                let hardSkill = result.skills.find(({skillName}) => skillName == skillType);
+                for (const skill in result.hardSkill)
+                {
+                    if(skill.parentId == hardSkill.skillId)
+                        processSkills(processCookies, loginUrl, competency, competencyId, level, skill.skillId, nextDir)
+                }
+            }
+            else{
+                console.log("not hard and not soft skill");
+            }
+}
+
+const getAllSkillsByLevels = async (processCookies, loginUrl, competency, competencyId, dir, skillType) =>{
+    for (let level = 1; i < 6; i++)
+    {
+        console.log("Level :" + level)
+        let nextDir = dir + "/" + "L" + level; //not sure if works recusively
+        createDir(nextDir);
+        try{            
+            processSkillsByLevels(processCookies, loginUrl, competency, competencyId, nextDir, skillType, level);            
+        } catch (e) {
+            console.error(e)
+        }
+    }
+    
+}
+
+const getCategoryByID = async (loginUrl, processCookies, id, rootDirName) => {
     const json = await Fetch("https://grow.telescopeai.com/api/PdpController/Load", {
         "headers": {
             "user-agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_6) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/85.0.4183.121 Safari/537.36",
@@ -164,68 +283,65 @@ const getCategoryByID = async (query, loginUrl, processCookies, id) => {
         "mode": "cors"
     }).then(t => t.json());
 
-    const c = json.headerVM.positions.competencies.find(({code}) => code === query.competency)
+    
+    const competents = json.headerVM.positions.competencies;
+    
+    for (const element in competents)
+        if(element.parentId != null)
+        {
+            //create a folder with the name of element, pass Id and folder name
+            let nextDir =  rootDirName + "/" + element.name;
+            createDir(nextDir);
+            //generate hard and soft skills folders
+            let softDirName = nextDir + "/SoftSkills"; 
+            createDir(softDirName);     
+            getAllSkillsByLevels(processCookies, loginUrl, element.code, element.id, softDirName, "Soft skills");
 
-    return c.id
+            let hardDirName = nextDir + "/HardSkills";   
+            createDir(hardDirName);    
+            getAllSkillsByLevels(processCookies, loginUrl, element.code, element.id, hardDirName, "Hard skills");
+        }    
 }
 
-const getData = async (replyWithDocument, query) => {
+
+const getData = async (rootDirName) => {
     try {
         const loginUrl = await getLoginUrl()
         const processCookies = await loginProcess(loginUrl)
+        console.log("Get Data");
+        var d = await getCategoryByID(loginUrl, processCookies, mikeId, rootDirName);     
 
-        const load = await getCategoryByID(query, loginUrl, processCookies, mikeId)
-
-        const result = await Fetch("https://grow.telescopeai.com/api/SkillContentReader/Query", {
-            "headers": {
-                "user-agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_6) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/85.0.4183.121 Safari/537.36",
-                "accept": "*/*",
-                "accept-language": "en-US,en;q=0.9",
-                "content-type": "application/json",
-                "sec-fetch-dest": "empty",
-                "sec-fetch-mode": "cors",
-                "sec-fetch-site": "same-origin",
-                "x-csrf-token": loginUrl.csrf,
-                "x-requested-with": "XMLHttpRequest",
-                "origin": "https://grow.telescopeai.com",
-                "cookie": processCookies,
-            },
-            "referrer": `https://grow.telescopeai.com/skillMatrices/${mikeId}?competency=${query.competency}&level=${query.level}&skill=${query.skill}`,
-            "referrerPolicy": "origin-when-cross-origin",
-            "body": `{\"skillId\":${query.skill},\"competencyId\":${load},\"userId\":${mikeId},\"isPreview\":false,\"jobFunctionLevel\":${query.level}`,
-            "method": "POST",
-            "mode": "cors"
-        }).then(t => t.text());
-
-        return replyWithDocument({
-            source: Buffer.from(result),
-            filename: `${query.skill}.json`
-        })
-
+              
     } catch (e) {
         console.error(e)
     }
 }
+   
+const http = require('http');
 
-bot.on('message', async ({ reply, replyWithDocument, update}) => {
+// Create server 
+let app = http.createServer(function (req, res) { 
+  
+    res.writeHead(200, {'Content-Type': 'text/html'}); 
+      
     try {
-        try {
-            const text = update.message.text.trim()
-            const parseUrl = new Url(text, true);
-
-            if (parseUrl.host !== 'grow.telescopeai.com' || !parseUrl.query || !parseUrl.query.competency || !parseUrl.query.level || !parseUrl.query.skill) {
-                return reply(`Ссылка не валидна`)
-            }
-
-            await reply(`Ща падажи`)
-
-            await getData(replyWithDocument, parseUrl.query)
+        try {            
+            let rootDirName = "./Matrix";
+            createDir(rootDirName); 
+          
+            getData(rootDirName);            
+            console.log( `Закончил епта!`);
         } catch (e) {
-            await reply(`Не получилось забрать страницу`)
+            console.log(e, `Не получилось забрать страницу`)
         }
     } catch (e) {
-        console.error(e)
+        console.log(e)
     }
-})
+    // Send the response body as "Hello World!"   
+    res.end('Hello World!'); 
+  
+});
 
-void bot.launch()
+app.listen(3000, '127.0.0.1');
+console.log('Node server running on port 3000');
+   
